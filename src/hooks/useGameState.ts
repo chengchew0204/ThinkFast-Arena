@@ -30,6 +30,9 @@ export function useGameState(room: Room | null, identity: string) {
     finalScore: null,
     countdown: 0,
     isGameActive: false,
+    currentContentId: null,
+    currentRound: 0,
+    totalRounds: 5,
   });
 
   const buzzCollectionTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -73,23 +76,39 @@ export function useGameState(room: Room | null, identity: string) {
   }, [room, identity, encoder]);
 
   // Start new game
-  const startGame = useCallback(() => {
+  const startGame = useCallback((totalRounds: number = 5) => {
     sendGameMessage(GameMessageType.START_GAME);
+    sendGameMessage(GameMessageType.CONFIGURE_ROUNDS, { totalRounds });
     setGameState(prev => ({
       ...prev,
       isGameActive: true,
       stage: GameStage.WAITING,
       players: new Map([[identity, { identity, score: 0, isAnswering: false, hasAnswered: false }]]),
+      currentRound: 1,
+      totalRounds,
     }));
   }, [sendGameMessage, identity]);
+
+  // Set content ID
+  const setContent = useCallback((contentId: string) => {
+    sendGameMessage(GameMessageType.SET_CONTENT, { contentId });
+    setGameState(prev => ({
+      ...prev,
+      currentContentId: contentId,
+    }));
+  }, [sendGameMessage]);
 
   // Generate and broadcast new question
   const generateQuestion = useCallback(async () => {
     try {
+      console.log('Generating question with contentId:', gameState.currentContentId);
       const response = await fetch('/api/game/generate-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ difficulty: 'medium' }),
+        body: JSON.stringify({ 
+          difficulty: 'medium',
+          contentId: gameState.currentContentId,
+        }),
       });
 
       if (!response.ok) {
@@ -132,7 +151,7 @@ export function useGameState(room: Room | null, identity: string) {
       console.error('Failed to generate question:', error);
       alert(`Failed to generate question: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check:\n1. OPENAI_API_KEY is set in .env.local\n2. Your OpenAI API key is valid and has credits\n3. Check browser console for details`);
     }
-  }, [sendGameMessage]);
+  }, [sendGameMessage, gameState.currentContentId]);
 
   // Player buzzes in
   const buzzIn = useCallback(() => {
@@ -189,24 +208,14 @@ export function useGameState(room: Room | null, identity: string) {
     setGameState(prev => ({
       ...prev,
       answer,
-      stage: GameStage.AI_FOLLOWUP,
+      stage: GameStage.SCORING,
     }));
 
-    // Disable camera after answering
-    if (room) {
-      try {
-        await room.localParticipant.setCameraEnabled(false);
-        console.log('Camera disabled after answering');
-      } catch (error) {
-        console.error('Failed to disable camera:', error);
-      }
-    }
-
-    // Evaluate answer and generate follow-up questions (inline to avoid circular dependency)
+    // Calculate final score immediately without follow-up questions
     try {
       if (!gameState.currentQuestion) return;
 
-      const response = await fetch('/api/game/evaluate-answer', {
+      const response = await fetch('/api/game/final-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,112 +227,86 @@ export function useGameState(room: Room | null, identity: string) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || 'Failed to evaluate answer');
+        throw new Error(errorData.error || 'Failed to calculate score');
       }
 
-      const { followUpQuestions } = await response.json();
+      const finalScore = await response.json();
       
-      sendGameMessage(GameMessageType.FOLLOWUP_READY, { followUpQuestions });
+      sendGameMessage(GameMessageType.SCORE_READY, { 
+        finalScore,
+        answerer: identity 
+      });
 
       setGameState(prev => ({
         ...prev,
-        followUpQuestions: followUpQuestions.map((fq: any) => ({
-          question: fq.question,
-          context: fq.purpose,
-        })),
+        stage: GameStage.SCORING,
+        finalScore,
       }));
 
-    } catch (error) {
-      console.error('Failed to evaluate answer:', error);
-      alert(`Failed to evaluate answer: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your OpenAI API configuration.`);
-    }
-  }, [identity, room, sendGameMessage, gameState.currentQuestion]);
-
-  // Submit follow-up answer
-  const submitFollowUpAnswer = useCallback((audioBlob: Blob, transcript: string, questionIndex: number) => {
-    sendGameMessage(GameMessageType.FOLLOWUP_ANSWER_SUBMITTED, { 
-      transcript,
-      questionIndex,
-      answerer: identity 
-    });
-
-    setGameState(prev => {
-      const newFollowUpAnswers = [...prev.followUpAnswers];
-      newFollowUpAnswers[questionIndex] = { transcript, audioBlob };
-
-      return {
-        ...prev,
-        followUpAnswers: newFollowUpAnswers,
-      };
-    });
-
-    // Calculate final score after this follow-up (since we only have 1 follow-up now)
-    setTimeout(() => {
+      // Update player score
       setGameState(prev => {
-        if (prev.answer && prev.followUpAnswers.length > 0) {
-          // Inline final score calculation to avoid dependency issues
-          (async () => {
-            try {
-              if (!gameState.currentQuestion) return;
-
-              const response = await fetch('/api/game/final-score', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  question: gameState.currentQuestion.content,
-                  answer: prev.answer?.transcript || '',
-                  followUpQuestions: prev.followUpQuestions,
-                  followUpAnswers: prev.followUpAnswers.map(a => a.transcript),
-                  topicName: gameState.currentQuestion.topicName,
-                }),
-              });
-
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                throw new Error(errorData.error || 'Failed to calculate score');
-              }
-
-              const finalScore = await response.json();
-              
-              sendGameMessage(GameMessageType.SCORE_READY, { 
-                finalScore,
-                answerer: prev.currentAnswerer 
-              });
-
-              setGameState(current => ({
-                ...current,
-                stage: GameStage.SCORING,
-                finalScore,
-              }));
-
-              // Update player score
-              setGameState(current => {
-                const newPlayers = new Map(current.players);
-                const player = newPlayers.get(current.currentAnswerer || '');
-                if (player) {
-                  player.score += finalScore.totalScore;
-                  player.hasAnswered = true;
-                  player.isAnswering = false;
-                }
-                return { ...current, players: newPlayers };
-              });
-
-            } catch (error) {
-              console.error('Failed to calculate final score:', error);
-              alert(`Failed to calculate score: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your OpenAI API configuration.`);
-            }
-          })();
+        const newPlayers = new Map(prev.players);
+        const player = newPlayers.get(prev.currentAnswerer || '');
+        if (player) {
+          player.score += finalScore.totalScore;
+          player.hasAnswered = true;
+          player.isAnswering = false;
         }
-        return prev;
+        return { ...prev, players: newPlayers };
       });
-    }, 500);
+
+    } catch (error) {
+      console.error('Failed to calculate final score:', error);
+      alert(`Failed to calculate score: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your OpenAI API configuration.`);
+    }
   }, [identity, sendGameMessage, gameState.currentQuestion]);
 
   // Next round
   const nextRound = useCallback(() => {
-    sendGameMessage(GameMessageType.NEXT_ROUND);
-    generateQuestion();
+    setGameState(prev => {
+      const nextRoundNumber = prev.currentRound + 1;
+      
+      if (nextRoundNumber > prev.totalRounds) {
+        // Game is over
+        sendGameMessage(GameMessageType.END_GAME);
+        return {
+          ...prev,
+          stage: GameStage.GAME_OVER,
+        };
+      } else {
+        // Continue to next round
+        sendGameMessage(GameMessageType.NEXT_ROUND);
+        generateQuestion();
+        return {
+          ...prev,
+          currentRound: nextRoundNumber,
+        };
+      }
+    });
   }, [sendGameMessage, generateQuestion]);
+
+  // Reset game
+  const resetGame = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      stage: GameStage.WAITING,
+      isGameActive: false,
+      currentRound: 0,
+      totalRounds: 5,
+      currentQuestion: null,
+      currentAnswerer: null,
+      buzzAttempts: [],
+      answer: null,
+      followUpQuestions: [],
+      followUpAnswers: [],
+      finalScore: null,
+      countdown: 0,
+      players: new Map(Array.from(prev.players.entries()).map(([id, player]) => [
+        id,
+        { ...player, score: 0, isAnswering: false, hasAnswered: false }
+      ])),
+    }));
+  }, []);
 
   // Handle incoming game messages
   useEffect(() => {
@@ -352,7 +335,31 @@ export function useGameState(room: Room | null, identity: string) {
         switch (message.type) {
           case GameMessageType.START_GAME:
             console.log('Starting game (from remote)');
-            setGameState(prev => ({ ...prev, isGameActive: true }));
+            setGameState(prev => ({ ...prev, isGameActive: true, currentRound: 1 }));
+            break;
+
+          case GameMessageType.CONFIGURE_ROUNDS:
+            console.log('Received round configuration from host:', message.payload.totalRounds);
+            setGameState(prev => ({ 
+              ...prev, 
+              totalRounds: message.payload.totalRounds 
+            }));
+            break;
+
+          case GameMessageType.END_GAME:
+            console.log('Game over received from host');
+            setGameState(prev => ({ 
+              ...prev, 
+              stage: GameStage.GAME_OVER 
+            }));
+            break;
+
+          case GameMessageType.SET_CONTENT:
+            console.log('Received content ID from host:', message.payload.contentId);
+            setGameState(prev => ({ 
+              ...prev, 
+              currentContentId: message.payload.contentId 
+            }));
             break;
 
           case GameMessageType.NEW_QUESTION:
@@ -403,15 +410,8 @@ export function useGameState(room: Room | null, identity: string) {
           case GameMessageType.ANSWER_SUBMITTED:
             setGameState(prev => ({
               ...prev,
-              stage: GameStage.AI_FOLLOWUP,
+              stage: GameStage.SCORING,
               answer: { transcript: message.payload.transcript },
-            }));
-            break;
-
-          case GameMessageType.FOLLOWUP_READY:
-            setGameState(prev => ({
-              ...prev,
-              followUpQuestions: message.payload.followUpQuestions,
             }));
             break;
 
@@ -438,11 +438,12 @@ export function useGameState(room: Room | null, identity: string) {
   return {
     gameState,
     startGame,
+    setContent,
     generateQuestion,
     buzzIn,
     submitAnswer,
-    submitFollowUpAnswer,
     nextRound,
+    resetGame,
   };
 }
 

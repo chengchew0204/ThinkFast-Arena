@@ -35,11 +35,12 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
   const {
     gameState,
     startGame,
+    setContent,
     generateQuestion,
     buzzIn,
     submitAnswer,
-    submitFollowUpAnswer,
     nextRound,
+    resetGame,
   } = useGameState(room, identity);
 
   const connectToRoom = useCallback(async (canPublish = false) => {
@@ -294,6 +295,80 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
     }
   }, [room]);
 
+  const enableAnswererCamera = useCallback(async () => {
+    if (!room) {
+      console.error('Cannot enable answerer camera: room not initialized');
+      return false;
+    }
+
+    try {
+      console.log('Enabling camera for answerer...');
+      
+      // Check if we already have camera enabled
+      const existingCameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      if (existingCameraTrack && existingCameraTrack.track) {
+        console.log('Camera already enabled');
+        return true;
+      }
+
+      // Enable camera
+      await room.localParticipant.setCameraEnabled(true);
+      console.log('Answerer camera enabled and published');
+      return true;
+    } catch (error) {
+      console.error('Failed to enable answerer camera:', error);
+      
+      // If we don't have permissions, we need to reconnect with publish permissions
+      try {
+        console.log('Reconnecting with publish permissions for answering...');
+        
+        // Get a new token with publish permissions
+        const response = await fetch('/api/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            identity,
+            roomName,
+            canPublish: true,
+            canSubscribe: true,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get publish token');
+        }
+
+        const { token } = await response.json();
+        
+        // Update room token to allow publishing
+        await room.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, token);
+        
+        // Now try enabling camera again
+        await room.localParticipant.setCameraEnabled(true);
+        console.log('Camera enabled after permission upgrade');
+        return true;
+      } catch (reconnectError) {
+        console.error('Failed to upgrade permissions:', reconnectError);
+        setError('Unable to enable camera for answering. Please try starting broadcast first.');
+        return false;
+      }
+    }
+  }, [room, roomName, identity]);
+
+  const disableAnswererCamera = useCallback(async () => {
+    if (!room) return;
+
+    try {
+      console.log('Disabling answerer camera...');
+      await room.localParticipant.setCameraEnabled(false);
+      console.log('Answerer camera disabled');
+    } catch (error) {
+      console.error('Failed to disable answerer camera:', error);
+    }
+  }, [room]);
+
   const disconnect = useCallback(async () => {
     if (room) {
       await room.disconnect();
@@ -491,8 +566,10 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
           <GameControlPanel
             gameState={gameState}
             onStartGame={startGame}
+            onSetContent={setContent}
             onGenerateQuestion={generateQuestion}
             onNextRound={nextRound}
+            onResetGame={resetGame}
           />
           
           <GameUI
@@ -501,7 +578,8 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
             room={room}
             onBuzzIn={buzzIn}
             onAnswerSubmit={submitAnswer}
-            onFollowUpAnswerSubmit={submitFollowUpAnswer}
+            onEnableCamera={enableAnswererCamera}
+            onDisableCamera={disableAnswererCamera}
           />
         </>
       )}

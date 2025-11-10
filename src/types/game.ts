@@ -5,6 +5,7 @@ export enum GameStage {
   ANSWERING = 'ANSWERING',
   AI_FOLLOWUP = 'AI_FOLLOWUP',
   SCORING = 'SCORING',
+  GAME_OVER = 'GAME_OVER',
 }
 
 export interface Player {
@@ -63,6 +64,9 @@ export interface GameState {
   finalScore: FinalScore | null;
   countdown: number;
   isGameActive: boolean;
+  currentContentId: string | null;
+  currentRound: number;
+  totalRounds: number;
 }
 
 export enum GameMessageType {
@@ -79,6 +83,8 @@ export enum GameMessageType {
   END_GAME = 'END_GAME',
   PLAYER_JOINED = 'PLAYER_JOINED',
   SYNC_STATE = 'SYNC_STATE',
+  SET_CONTENT = 'SET_CONTENT',
+  CONFIGURE_ROUNDS = 'CONFIGURE_ROUNDS',
 }
 
 export interface GameMessage {

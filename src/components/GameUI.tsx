@@ -11,7 +11,8 @@ interface GameUIProps {
   room: Room | null;
   onBuzzIn: () => void;
   onAnswerSubmit: (audioBlob: Blob, transcript: string) => void;
-  onFollowUpAnswerSubmit: (audioBlob: Blob, transcript: string, questionIndex: number) => void;
+  onEnableCamera: () => Promise<boolean>;
+  onDisableCamera: () => Promise<void>;
 }
 
 export default function GameUI({
@@ -20,130 +21,116 @@ export default function GameUI({
   room,
   onBuzzIn,
   onAnswerSubmit,
-  onFollowUpAnswerSubmit,
+  onEnableCamera,
+  onDisableCamera,
 }: GameUIProps) {
   const isMyTurn = gameState.currentAnswerer === identity;
   const currentPlayer = gameState.players.get(identity);
 
-  // Handle video stream attachment for answering stage
+  // Handle camera enable/disable for answering
   useEffect(() => {
-    if (gameState.stage !== GameStage.ANSWERING || !room) return;
-
-    console.log('Setting up video stream, isMyTurn:', isMyTurn);
+    const isAnsweringStage = gameState.stage === GameStage.ANSWERING;
     
-    if (isMyTurn) {
-      // Attach local video for the answerer
-      const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
-      console.log('Local video element found:', !!localVideoElement);
-      
-      if (!localVideoElement) return;
+    if (!room) return;
 
-      // Check if camera is already enabled
-      const existingPublication = room.localParticipant.getTrackPublication(Track.Source.Camera);
-      
-      if (existingPublication && existingPublication.track) {
-        // Camera already enabled, just attach
-        existingPublication.track.attach(localVideoElement);
-        console.log('Attached existing camera track');
-      } else {
-        // Need to enable camera - use browser getUserMedia directly
-        console.log('Camera not found, getting media stream directly...');
-        
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-          .then(async (stream) => {
-            console.log('Got media stream, creating track...');
-            
-            // Attach stream directly to video element first
-            localVideoElement.srcObject = stream;
-            localVideoElement.play();
-            console.log('Video stream attached to element');
-            
-            // Then publish to LiveKit
-            try {
-              const videoTrack = stream.getVideoTracks()[0];
-              await room.localParticipant.publishTrack(videoTrack, {
-                source: Track.Source.Camera,
-              });
-              console.log('Video track published to LiveKit');
-            } catch (publishError) {
-              console.warn('Could not publish to LiveKit (insufficient permissions), but local video works:', publishError);
-              // Video still shows locally even if we can't publish
-            }
-          })
-          .catch(err => {
-            console.error('Failed to get camera access:', err);
-          });
-      }
-    } else {
-      // Attach remote video for viewers
-      const remoteVideoElement = document.getElementById('answerer-remote-video') as HTMLVideoElement;
-      if (!remoteVideoElement || !gameState.currentAnswerer) return;
+    console.log('Video effect triggered:', { 
+      stage: gameState.stage, 
+      isMyTurn, 
+      currentAnswerer: gameState.currentAnswerer 
+    });
 
-      // Find the remote participant
-      const remoteParticipant = Array.from(room.remoteParticipants.values()).find(
-        (p) => p.identity === gameState.currentAnswerer
-      );
-      
-      if (remoteParticipant) {
-        const cameraPublication = remoteParticipant.getTrackPublication(Track.Source.Camera);
-        
-        if (cameraPublication && cameraPublication.track) {
-          cameraPublication.track.attach(remoteVideoElement);
-          console.log('Attached remote video for viewer');
-        } else {
-          console.log('Waiting for remote video track, setting up listener...');
+    // Enable camera when it's my turn to answer
+    if (isMyTurn && isAnsweringStage) {
+      console.log('Enabling camera for answering...');
+      onEnableCamera().then(success => {
+        if (success) {
+          console.log('Camera enabled successfully');
           
-          // Listen for remote track subscribed
-          const handleTrackSubscribed = (track: any) => {
-            console.log('Remote track subscribed:', track.source, track.kind);
-            if (track.source === Track.Source.Camera) {
-              track.attach(remoteVideoElement);
-              console.log('Attached remote camera track');
+          // Attach to video element
+          const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
+          if (localVideoElement) {
+            const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+            if (cameraTrack) {
+              cameraTrack.attach(localVideoElement);
+              console.log('Camera track attached to local video element');
             }
-          };
-
-          remoteParticipant.on('trackSubscribed', handleTrackSubscribed);
-
-          return () => {
-            remoteParticipant.off('trackSubscribed', handleTrackSubscribed);
-          };
+          }
+        } else {
+          console.error('Failed to enable camera');
         }
-      }
+      });
     }
 
+    // Disable camera when leaving answering stages
     return () => {
-      // Cleanup: stop video streams
-      const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
-      const remoteVideoElement = document.getElementById('answerer-remote-video') as HTMLVideoElement;
-      
-      if (localVideoElement && isMyTurn) {
-        // Stop all tracks in the stream
-        if (localVideoElement.srcObject) {
-          const stream = localVideoElement.srcObject as MediaStream;
-          stream.getTracks().forEach(track => {
-            track.stop();
-            console.log('Stopped video track');
-          });
-          localVideoElement.srcObject = null;
-        }
+      if (isMyTurn && gameState.stage === GameStage.SCORING) {
+        console.log('Disabling camera after answering');
+        onDisableCamera();
         
-        // Also try LiveKit cleanup
-        const cameraPublication = room.localParticipant.getTrackPublication(Track.Source.Camera);
-        if (cameraPublication && cameraPublication.track) {
-          cameraPublication.track.detach(localVideoElement);
-        }
-      }
-      
-      if (remoteVideoElement && !isMyTurn && gameState.currentAnswerer) {
-        const remoteParticipant = Array.from(room.remoteParticipants.values()).find(
-          (p) => p.identity === gameState.currentAnswerer
-        );
-        if (remoteParticipant) {
-          const cameraPublication = remoteParticipant.getTrackPublication(Track.Source.Camera);
-          if (cameraPublication && cameraPublication.track) {
-            cameraPublication.track.detach(remoteVideoElement);
+        // Cleanup video element
+        const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
+        if (localVideoElement) {
+          const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+          if (cameraTrack) {
+            cameraTrack.detach(localVideoElement);
           }
         }
+      }
+    };
+  }, [gameState.stage, gameState.currentAnswerer, isMyTurn, room, onEnableCamera, onDisableCamera]);
+
+  // Handle remote video attachment for viewers
+  useEffect(() => {
+    const isAnsweringStage = gameState.stage === GameStage.ANSWERING;
+    
+    if (!room || isMyTurn || !isAnsweringStage) return;
+
+    const remoteVideoElement = document.getElementById('answerer-remote-video') as HTMLVideoElement;
+    if (!remoteVideoElement || !gameState.currentAnswerer) return;
+
+    console.log('Setting up remote video for viewer');
+
+    // Find the remote participant who is answering
+    const remoteParticipant = Array.from(room.remoteParticipants.values()).find(
+      (p) => p.identity === gameState.currentAnswerer
+    );
+    
+    if (!remoteParticipant) {
+      console.log('Remote participant not found yet:', gameState.currentAnswerer);
+      return;
+    }
+
+    // Attach existing camera track if available
+    const cameraPublication = remoteParticipant.getTrackPublication(Track.Source.Camera);
+    
+    if (cameraPublication && cameraPublication.track) {
+      cameraPublication.track.attach(remoteVideoElement);
+      console.log('Attached remote camera track for viewer');
+    } else {
+      console.log('Waiting for remote camera track...');
+      
+      // Listen for when the track becomes available
+      const handleTrackSubscribed = (track: any) => {
+        console.log('Remote track subscribed:', track.source, track.kind);
+        if (track.source === Track.Source.Camera) {
+          track.attach(remoteVideoElement);
+          console.log('Attached remote camera track');
+        }
+      };
+
+      remoteParticipant.on('trackSubscribed', handleTrackSubscribed);
+
+      return () => {
+        remoteParticipant.off('trackSubscribed', handleTrackSubscribed);
+      };
+    }
+
+    // Cleanup when stage changes
+    return () => {
+      const cameraTrack = remoteParticipant.getTrackPublication(Track.Source.Camera)?.track;
+      if (cameraTrack) {
+        cameraTrack.detach(remoteVideoElement);
+        console.log('Detached remote camera track');
       }
     };
   }, [gameState.stage, gameState.currentAnswerer, isMyTurn, room]);
@@ -161,6 +148,11 @@ export default function GameUI({
           <div className="flex justify-between items-center">
             <div className="text-gray-400 text-sm">
               Players: {gameState.players.size}
+              {gameState.isGameActive && gameState.currentRound > 0 && (
+                <span className="ml-4 text-yellow-500">
+                  Round {gameState.currentRound} / {gameState.totalRounds}
+                </span>
+              )}
             </div>
             <div className="text-white text-sm">
               Your Score: <span className="font-mono text-lg">{currentPlayer?.score || 0}</span>
@@ -299,60 +291,6 @@ export default function GameUI({
           </div>
         )}
 
-        {/* Game Stage: AI Follow-up */}
-        {gameState.stage === GameStage.AI_FOLLOWUP && (
-          <div className="border border-white p-8 space-y-6">
-            <div className="text-center">
-              <h3 className="text-white text-lg mb-4">AI Follow-up Questions</h3>
-            </div>
-
-            {gameState.followUpQuestions.length === 0 ? (
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-white mx-auto mb-4"></div>
-                <p className="text-gray-400 text-sm">AI is analyzing your answer...</p>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {gameState.followUpQuestions.map((fq, index) => (
-                  <div key={index} className="border border-gray-700 p-6 space-y-4">
-                    <div>
-                      <div className="text-gray-400 text-xs mb-2">Follow-up {index + 1}</div>
-                      <p className="text-white text-base">{fq.question}</p>
-                    </div>
-
-                    {isMyTurn && !gameState.followUpAnswers[index] ? (
-                      <div className="space-y-2">
-                        <p className="text-gray-400 text-xs text-center">
-                          Click to record your 30-second response
-                        </p>
-                        <AudioRecorder
-                          maxDuration={30}
-                          onRecordingComplete={(blob, transcript) => {
-                            console.log('Follow-up answer completed:', index, transcript.substring(0, 50));
-                            onFollowUpAnswerSubmit(blob, transcript, index);
-                          }}
-                          onError={(error) => {
-                            console.error('Follow-up recording error:', error);
-                            alert(error);
-                          }}
-                          autoStart={false}
-                          label="Record Answer (30s)"
-                        />
-                      </div>
-                    ) : gameState.followUpAnswers[index] ? (
-                      <div className="text-green-500 text-sm">Answer submitted</div>
-                    ) : (
-                      <div className="text-gray-400 text-sm">
-                        {gameState.currentAnswerer} is answering...
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Game Stage: Scoring */}
         {gameState.stage === GameStage.SCORING && gameState.finalScore && (
           <div className="border border-white p-8 space-y-6">
@@ -386,6 +324,79 @@ export default function GameUI({
             <div className="border-t border-gray-700 pt-6">
               <p className="text-white text-sm leading-relaxed">
                 {gameState.finalScore.overallFeedback}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Game Stage: Game Over */}
+        {gameState.stage === GameStage.GAME_OVER && (
+          <div className="border border-white p-8 space-y-6">
+            <div className="text-center">
+              <h2 className="text-white text-3xl font-light tracking-wide mb-2">Game Over</h2>
+              <p className="text-gray-400 text-sm">
+                {gameState.totalRounds} rounds completed
+              </p>
+            </div>
+
+            <div className="border-t border-gray-700 pt-6">
+              <h3 className="text-white text-xl mb-4 text-center">Final Leaderboard</h3>
+              <div className="space-y-3">
+                {Array.from(gameState.players.values())
+                  .sort((a, b) => b.score - a.score)
+                  .map((player, index) => {
+                    const isCurrentUser = player.identity === identity;
+                    const rank = index + 1;
+                    const getRankSuffix = (n: number) => {
+                      if (n === 1) return 'st';
+                      if (n === 2) return 'nd';
+                      if (n === 3) return 'rd';
+                      return 'th';
+                    };
+
+                    return (
+                      <div
+                        key={player.identity}
+                        className={`border p-4 flex justify-between items-center ${
+                          isCurrentUser
+                            ? 'border-yellow-500 bg-yellow-500 bg-opacity-10'
+                            : 'border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className={`text-2xl font-mono ${
+                              rank === 1
+                                ? 'text-yellow-500'
+                                : rank === 2
+                                ? 'text-gray-300'
+                                : rank === 3
+                                ? 'text-orange-600'
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {rank}
+                            <span className="text-xs align-super">{getRankSuffix(rank)}</span>
+                          </div>
+                          <div>
+                            <div className={`text-sm ${isCurrentUser ? 'text-yellow-500 font-medium' : 'text-white'}`}>
+                              {player.identity}
+                              {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-white text-xl font-mono">
+                          {player.score}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-700 pt-6 text-center">
+              <p className="text-gray-400 text-sm">
+                Waiting for host to start a new game...
               </p>
             </div>
           </div>

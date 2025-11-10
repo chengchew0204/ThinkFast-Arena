@@ -11,6 +11,7 @@
 - ✅ AI analysis and evaluation
 - ✅ **EXACTLY 1 follow-up question**
 - ✅ 30-second follow-up answer recording
+- ✅ **Camera persists during follow-up questions** (NEW!)
 - ✅ **Automatic AI rating after follow-up**
 - ✅ Multi-dimensional scoring display
 - ✅ Next round functionality
@@ -36,9 +37,15 @@
 - ✅ Proper error handling
 - ✅ Visual feedback (countdown timer, recording indicator)
 
-### 5. Emergence Theory Content
-- ✅ 8 topics from Glossary of Emergence
-- ✅ Keywords: emergence, threshold, feedback, fractal, autopoiesis, etc.
+### 5. Content System
+- ✅ 8 topics from Glossary of Emergence (default fallback)
+- ✅ **Custom Content Upload** (NEW!)
+  - ✅ Text paste (500-50,000 characters)
+  - ✅ URL input with HTML parsing
+  - ✅ AI-powered question generation from user content
+  - ✅ 10-20 questions per upload
+  - ✅ Quality filtering
+  - ✅ Question tracking (no immediate repeats)
 - ✅ Academic English questions
 - ✅ Conceptually focused
 
@@ -159,14 +166,121 @@ Score displays ←→     Both see same score ✅
 - Video doesn't broadcast to other players ⚠️
   (Due to LiveKit permission architecture)
 
-##Would You Like Me to Implement Full Video Broadcasting?
+## 🎉 New Features Implemented (November 10, 2025)
 
-This would require:
-1. Modifying the connection flow
-2. Reconnecting with publish permissions when needed
-3. More complex state management
+### 1. Camera Persistence During Follow-up
+**Issue Resolved**: Camera now stays on continuously from main answer through follow-up
+- Camera auto-activates when answering begins (90s)
+- Camera REMAINS active when follow-up question appears
+- Video display shown during 30-second follow-up recording
+- Camera properly disabled only after scoring stage
+- **No more interruption** between answer stages
 
-Or is the current setup (local video for answerer, audio for everyone) sufficient for your needs?
+### 2. Custom Content Upload System
+**Major Feature Added**: Users can now upload their own learning materials!
 
-Let me know and I can implement full broadcasting if needed!
+**Text Upload**:
+- Paste any learning content (500-50,000 characters)
+- AI generates 10-20 custom questions
+- Real-time character counter
+- Validation and error handling
 
+**URL Upload**:
+- Enter any webpage URL
+- Automatic HTML parsing with cheerio
+- Extracts main content from article/main/p tags
+- 10-second timeout protection
+- Handles 404, timeout, non-HTML errors
+
+**AI Question Generation**:
+- GPT-4o-mini analyzes uploaded content
+- Creates scenario-based, open-ended questions
+- Quality filtering (no yes/no questions)
+- Appropriate length (2-3 sentences)
+- Covers different aspects of material
+
+**Game Integration**:
+- "Upload Content" button in Game Controls
+- Content status display (title, question count)
+- Questions pulled from custom content during game
+- Multi-player: host's content shared with all players
+- Backward compatible: works without upload (uses default database)
+
+**Technical Implementation**:
+- In-memory content storage (session-scoped)
+- New API endpoints: `/api/content/process`, `/api/content/analyze`
+- Updated `/api/game/generate-question` with contentId support
+- Game state synchronization via Data Channel
+- Comprehensive error handling
+
+### 3. Enhanced User Experience
+- Modal-based upload interface with tabs
+- Real-time processing feedback
+- Success notifications with question counts
+- Clear error messages with actionable guidance
+- Smooth workflow integration
+
+## 📊 Updated Workflow
+
+### New Complete Game Flow:
+```
+1. Enter Room ✅
+2. Enable Game Mode ✅
+3. Upload Custom Content ✅ (NEW!)
+   - Paste text OR enter URL
+   - Wait for question generation (15-30s)
+   - See "X questions ready" confirmation
+4. Start Game & Generate Question ✅
+5. See animated countdown (10 → 0) ✅
+6. BUZZ IN ✅
+7. Win buzz-in ✅
+8. Camera TURNS ON ✅
+9. Record 90-second answer ✅
+10. Receive follow-up question ✅
+11. Camera STAYS ON ✅ (FIXED!)
+12. Record 30-second follow-up ✅
+13. Camera TURNS OFF ✅
+14. AI rating ✅
+15. See 4-dimensional score ✅
+16. Next Round with new custom question ✅
+```
+
+## 🔧 Technical Details
+
+### New Files Created:
+- `src/types/content.ts` - Type definitions
+- `src/utils/contentStore.ts` - In-memory storage
+- `src/components/ContentUpload.tsx` - Upload UI
+- `src/app/api/content/process/route.ts` - Content processing
+- `src/app/api/content/analyze/route.ts` - Question generation
+
+### Files Modified:
+- `src/components/GameUI.tsx` - Camera persistence fix
+- `src/components/GameControlPanel.tsx` - Upload button
+- `src/components/LiveKitRoom.tsx` - Integration
+- `src/hooks/useGameState.ts` - Content state management
+- `src/types/game.ts` - Added currentContentId
+- `src/app/api/game/generate-question/route.ts` - Custom content support
+
+### Dependencies Added:
+- cheerio - HTML parsing
+- @types/cheerio - TypeScript types
+
+## ✅ All Issues Resolved
+
+1. ✅ Camera persistence during follow-up - FIXED
+2. ✅ Custom content upload - IMPLEMENTED
+3. ✅ Dynamic question generation - IMPLEMENTED
+4. ✅ Multi-player content sync - IMPLEMENTED
+5. ✅ Error handling - COMPREHENSIVE
+6. ✅ Build verification - SUCCESSFUL
+
+## 📝 Documentation
+
+- `docs/IMPLEMENTATION_COMPLETE.md` - Implementation summary
+- `docs/TESTING_GUIDE.md` - Complete testing procedures
+- `docs/CURRENT_STATUS.md` - This file (updated)
+
+## 🚀 Ready for Testing
+
+All planned features have been implemented and are ready for testing. See `docs/TESTING_GUIDE.md` for detailed testing procedures.

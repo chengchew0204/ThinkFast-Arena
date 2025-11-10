@@ -3,11 +3,11 @@ import OpenAI from 'openai';
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, answer, followUpQuestions, followUpAnswers, topicName } = await req.json();
+    const { question, answer, topicName } = await req.json();
 
-    if (!question || !answer || !followUpQuestions || !followUpAnswers) {
+    if (!question || !answer) {
       return NextResponse.json(
-        { error: 'Missing required parameters' },
+        { error: 'Missing required parameters: question and answer' },
         { status: 400 }
       );
     }
@@ -23,39 +23,43 @@ export async function POST(req: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const followUpContext = followUpQuestions.map((fq: any, idx: number) => 
-      `Follow-up ${idx + 1}: ${fq.question}\nCandidate's Answer: ${followUpAnswers[idx] || '(No answer)'}`
-    ).join('\n\n');
-
-    const prompt = `You are an expert evaluator in complexity science and emergence theory. Provide an objective, multi-dimensional assessment of the candidate's complete performance.
+    const prompt = `You are an expert evaluator in complexity science and emergence theory. Provide an objective, multi-dimensional assessment of the candidate's performance.
 
 Topic: ${topicName}
-Original Question: ${question}
+Question: ${question}
 
-Original Answer:
+Candidate's Answer:
 ${answer}
 
-${followUpContext}
+Evaluate based on the following three dimensions:
 
-Evaluate based on the following four dimensions (25 points each):
-
-1. Conceptual Accuracy: Correctness and precision of concepts and terminology
-2. Argument Structure: Logic, organization, and completeness of response
-3. Examples & Applications: Ability to provide relevant examples or real-world applications
-4. Follow-up Response Quality: Understanding and quality of responses to follow-up questions
+1. Conceptual Accuracy (40 points): Correctness and precision of concepts and terminology
+2. Argument Structure (30 points): Logic, organization, and completeness of response
+3. Examples & Applications (30 points): Ability to provide relevant examples or real-world applications
 
 Return in JSON format:
 {
   "dimensions": [
     {
       "name": "Conceptual Accuracy",
-      "score": 20,
-      "maxScore": 25,
+      "score": 32,
+      "maxScore": 40,
       "feedback": "Specific feedback"
     },
-    // ... other dimensions
+    {
+      "name": "Argument Structure",
+      "score": 25,
+      "maxScore": 30,
+      "feedback": "Specific feedback"
+    },
+    {
+      "name": "Examples & Applications",
+      "score": 22,
+      "maxScore": 30,
+      "feedback": "Specific feedback"
+    }
   ],
-  "totalScore": 85,
+  "totalScore": 79,
   "totalMaxScore": 100,
   "overallFeedback": "Overall feedback and suggestions (3-4 sentences)",
   "highlights": "Performance highlights",

@@ -1,11 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import questionsDb from '@/data/questions-database.json';
+import { getUnusedQuestion, debugStorage } from '@/utils/contentStore';
 
 export async function POST(req: NextRequest) {
   try {
-    const { difficulty = 'medium' } = await req.json();
+    const { difficulty = 'medium', contentId } = await req.json();
 
+    // If contentId is provided, use custom content questions
+    if (contentId) {
+      console.log('Attempting to get question for contentId:', contentId);
+      debugStorage(); // Show what's in storage
+      const customQuestion = getUnusedQuestion(contentId);
+      
+      if (!customQuestion) {
+        console.error('No questions found for contentId:', contentId);
+        debugStorage(); // Show again after failure
+        return NextResponse.json(
+          { error: 'No questions available for this content. Content may not exist or all questions have been used.' },
+          { status: 404 }
+        );
+      }
+
+      console.log('Found question:', customQuestion.id);
+      return NextResponse.json({
+        id: customQuestion.id,
+        topic: 'custom',
+        topicName: 'Custom Content',
+        content: customQuestion.question,
+        context: customQuestion.context,
+        difficulty: customQuestion.difficulty,
+      });
+    }
+
+    // Fallback to fixed database (backward compatibility)
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured' },
@@ -17,7 +45,7 @@ export async function POST(req: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // Randomly select a topic
+    // Randomly select a topic from fixed database
     const topic = questionsDb.topics[Math.floor(Math.random() * questionsDb.topics.length)];
 
     const prompt = `You are an expert educator and interviewer specializing in complexity science and emergence theory. Generate a concise, open-ended discussion question based on the following topic from the Glossary of Emergence.
