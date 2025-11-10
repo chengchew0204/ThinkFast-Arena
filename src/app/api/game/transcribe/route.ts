@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
     });
 
     const formData = await req.formData();
-    const audioFile = formData.get('audio') as File;
+    const audioFile = formData.get('audio');
 
-    if (!audioFile) {
+    if (!audioFile || !(audioFile instanceof Blob)) {
       return NextResponse.json(
         { error: 'No audio file provided' },
         { status: 400 }
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     // Transcribe using Whisper API
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
+      file: audioFile as any,
       model: 'whisper-1',
       language: 'en',
       response_format: 'json'
