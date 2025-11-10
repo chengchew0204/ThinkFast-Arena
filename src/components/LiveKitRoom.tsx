@@ -44,7 +44,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
     addPlayer,
   } = useGameState(room, identity);
 
-  const connectToRoom = useCallback(async (canPublish = true) => {
+  const connectToRoom = useCallback(async (canPublish = true, shouldEnableMedia = false) => {
     try {
       setError(null);
       
@@ -181,9 +181,21 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         addPlayer(participant.identity);
       });
 
-      // Do NOT enable camera/microphone on initial connection
-      // Camera will be enabled only during ANSWERING stage by GameUI
-      console.log('Connected to room. Camera/microphone will be enabled only during answering stage.');
+      // Enable camera/microphone only if explicitly requested (for manual broadcasting)
+      // Game mode will handle its own camera control through GameUI
+      if (shouldEnableMedia && canPublish) {
+        try {
+          console.log('Enabling camera and microphone for broadcasting...');
+          await newRoom.localParticipant.enableCameraAndMicrophone();
+          setIsBroadcasting(true);
+          console.log('Broadcasting started successfully');
+        } catch (mediaErr) {
+          console.error('Failed to enable media after connection:', mediaErr);
+          setError('Unable to enable camera or microphone. Please check if devices are being used by other applications.');
+        }
+      } else {
+        console.log('Connected to room. Camera/microphone will be controlled by game mode or manual broadcasting.');
+      }
 
       setRoom(newRoom);
     } catch (err) {
@@ -257,9 +269,9 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         setIsConnected(false);
       }
 
-      // Connect with publishing permissions
+      // Connect with publishing permissions and enable media
       console.log('Connecting with publishing permissions...');
-      await connectToRoom(true);
+      await connectToRoom(true, true); // canPublish=true, shouldEnableMedia=true
       
     } catch (err) {
       console.error('Failed to start broadcasting:', err);
@@ -494,8 +506,25 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         )}
       </div>
 
-      {/* Control Panel - Manual broadcasting removed, camera auto-controlled by game stage */}
+      {/* Control Panel */}
       <div className="control-panel">
+        {!isBroadcasting ? (
+          <button
+            onClick={startBroadcasting}
+            disabled={!isConnected}
+            className="border border-white text-white hover:bg-white hover:text-black disabled:border-gray-600 disabled:text-gray-600 disabled:hover:bg-transparent disabled:hover:text-gray-600 px-6 py-2 text-sm transition-colors duration-200"
+          >
+            {remoteVideoTrack ? 'Takeover Broadcast' : 'Start Broadcasting'}
+          </button>
+        ) : (
+          <button
+            onClick={stopBroadcasting}
+            className="border border-gray-400 text-gray-400 hover:border-white hover:text-white px-6 py-2 text-sm transition-colors duration-200"
+          >
+            Stop Broadcasting
+          </button>
+        )}
+        
         {isConnected && (
           <>
             <button
