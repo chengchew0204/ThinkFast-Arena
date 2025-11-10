@@ -37,29 +37,31 @@ Evaluate based on the following three dimensions:
 2. Argument Structure (30 points): Logic, organization, and completeness of response
 3. Examples & Applications (30 points): Ability to provide relevant examples or real-world applications
 
-Return in JSON format:
+CRITICAL: You MUST calculate actual scores based on the answer quality. Do NOT use the example numbers below.
+
+Return in JSON format with your calculated scores:
 {
   "dimensions": [
     {
       "name": "Conceptual Accuracy",
-      "score": 32,
+      "score": <your_calculated_score_0_to_40>,
       "maxScore": 40,
-      "feedback": "Specific feedback"
+      "feedback": "Specific feedback on conceptual accuracy"
     },
     {
       "name": "Argument Structure",
-      "score": 25,
+      "score": <your_calculated_score_0_to_30>,
       "maxScore": 30,
-      "feedback": "Specific feedback"
+      "feedback": "Specific feedback on argument structure"
     },
     {
       "name": "Examples & Applications",
-      "score": 22,
+      "score": <your_calculated_score_0_to_30>,
       "maxScore": 30,
-      "feedback": "Specific feedback"
+      "feedback": "Specific feedback on examples and applications"
     }
   ],
-  "totalScore": 79,
+  "totalScore": <sum_of_all_dimension_scores>,
   "totalMaxScore": 100,
   "overallFeedback": "Overall feedback and suggestions (3-4 sentences)",
   "highlights": "Performance highlights",

@@ -291,7 +291,22 @@ export default function GameUI({
           </div>
         )}
 
-        {/* Game Stage: Scoring */}
+        {/* Game Stage: Scoring - Loading */}
+        {gameState.stage === GameStage.SCORING && !gameState.finalScore && (
+          <div className="border border-white p-8 space-y-6">
+            <div className="text-center">
+              <h3 className="text-white text-2xl mb-4">Scoring Answer...</h3>
+              <div className="flex justify-center items-center space-x-2">
+                <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <p className="text-gray-400 text-sm mt-6">AI is evaluating the answer...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Game Stage: Scoring - Results */}
         {gameState.stage === GameStage.SCORING && gameState.finalScore && (
           <div className="border border-white p-8 space-y-6">
             <div className="text-center">

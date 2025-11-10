@@ -151,7 +151,7 @@ export function useGameState(room: Room | null, identity: string) {
         answer: null,
         followUpQuestions: [],
         followUpAnswers: [],
-        finalScore: null,
+        finalScore: null, // Clear previous score
         countdown: 10,
       }));
 
@@ -393,6 +393,10 @@ export function useGameState(room: Room | null, identity: string) {
               currentQuestion: message.payload.question,
               currentAnswerer: null,
               buzzAttempts: [],
+              answer: null,
+              followUpQuestions: [],
+              followUpAnswers: [],
+              finalScore: null, // Clear previous score
               countdown: 10,
             }));
             
