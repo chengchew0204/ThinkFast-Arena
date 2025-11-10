@@ -39,7 +39,7 @@ export default function GameUI({
       currentAnswerer: gameState.currentAnswerer 
     });
 
-    // Enable camera when it's my turn to answer
+    // Enable camera ONLY when it's my turn to answer in ANSWERING stage
     if (isMyTurn && isAnsweringStage) {
       console.log('Enabling camera for answering...');
       onEnableCamera().then(success => {
@@ -59,12 +59,26 @@ export default function GameUI({
           console.error('Failed to enable camera');
         }
       });
+    } else {
+      // Disable camera in all other stages (WAITING, BUZZING, SCORING, GAME_OVER)
+      // or when it's not my turn
+      const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+      if (cameraTrack && cameraTrack.isMuted === false) {
+        console.log('Disabling camera - not in answering stage or not my turn');
+        onDisableCamera();
+        
+        // Cleanup video element
+        const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
+        if (localVideoElement) {
+          cameraTrack.detach(localVideoElement);
+        }
+      }
     }
 
-    // Disable camera when leaving answering stages
+    // Cleanup on unmount or stage change
     return () => {
-      if (isMyTurn && gameState.stage === GameStage.SCORING) {
-        console.log('Disabling camera after answering');
+      if (isMyTurn && isAnsweringStage) {
+        console.log('Cleanup: Disabling camera after answering');
         onDisableCamera();
         
         // Cleanup video element
@@ -78,6 +92,26 @@ export default function GameUI({
       }
     };
   }, [gameState.stage, gameState.currentAnswerer, isMyTurn, room, onEnableCamera, onDisableCamera]);
+
+  // Safety guard: Explicitly disable camera when entering non-answering stages
+  useEffect(() => {
+    if (!room) return;
+
+    const nonAnsweringStages = [
+      GameStage.WAITING,
+      GameStage.BUZZING,
+      GameStage.SCORING,
+      GameStage.GAME_OVER
+    ];
+
+    if (nonAnsweringStages.includes(gameState.stage)) {
+      const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+      if (cameraTrack && cameraTrack.isMuted === false) {
+        console.log(`Stage guard: Disabling camera in ${gameState.stage} stage`);
+        onDisableCamera();
+      }
+    }
+  }, [gameState.stage, room, onDisableCamera]);
 
   // Handle remote video attachment for viewers
   useEffect(() => {

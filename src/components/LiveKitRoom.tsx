@@ -181,18 +181,9 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         addPlayer(participant.identity);
       });
 
-      // If this connection is for publishing, enable camera and microphone
-      if (canPublish) {
-        try {
-          console.log('Enabling camera and microphone...');
-          await newRoom.localParticipant.enableCameraAndMicrophone();
-          setIsBroadcasting(true);
-          console.log('Broadcasting started successfully');
-        } catch (mediaErr) {
-          console.error('Failed to enable media after connection:', mediaErr);
-          setError('Unable to enable camera or microphone. Please check if devices are being used by other applications.');
-        }
-      }
+      // Do NOT enable camera/microphone on initial connection
+      // Camera will be enabled only during ANSWERING stage by GameUI
+      console.log('Connected to room. Camera/microphone will be enabled only during answering stage.');
 
       setRoom(newRoom);
     } catch (err) {
@@ -503,25 +494,8 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         )}
       </div>
 
-      {/* Control Panel */}
+      {/* Control Panel - Manual broadcasting removed, camera auto-controlled by game stage */}
       <div className="control-panel">
-        {!isBroadcasting ? (
-          <button
-            onClick={startBroadcasting}
-            disabled={!isConnected}
-            className="border border-white text-white hover:bg-white hover:text-black disabled:border-gray-600 disabled:text-gray-600 disabled:hover:bg-transparent disabled:hover:text-gray-600 px-6 py-2 text-sm transition-colors duration-200"
-          >
-            {remoteVideoTrack ? 'Takeover Broadcast' : 'Start Broadcasting'}
-          </button>
-        ) : (
-          <button
-            onClick={stopBroadcasting}
-            className="border border-gray-400 text-gray-400 hover:border-white hover:text-white px-6 py-2 text-sm transition-colors duration-200"
-          >
-            Stop Broadcasting
-          </button>
-        )}
-        
         {isConnected && (
           <>
             <button
