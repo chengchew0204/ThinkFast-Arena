@@ -434,7 +434,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
             autoPlay
             playsInline
             muted={false}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover scale-x-[-1]"
           />
         )}
         
@@ -445,7 +445,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
             autoPlay
             playsInline
             muted={true}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover scale-x-[-1]"
           />
         )}
         

@@ -278,7 +278,7 @@ export default function GameUI({
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover scale-x-[-1]"
                     />
                     <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-xs font-medium">
                       LIVE - You
@@ -290,7 +290,7 @@ export default function GameUI({
                       id="answerer-remote-video"
                       autoPlay
                       playsInline
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover scale-x-[-1]"
                     />
                     <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-xs font-medium">
                       LIVE - {gameState.currentAnswerer}
