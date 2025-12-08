@@ -109,7 +109,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
       });
 
       newRoom.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-        console.log('Track subscribed:', track.kind, 'from', participant.identity);
+        console.log('Track subscribed:', track.kind, 'from', participant.identity, 'source:', track.source);
         if (track.kind === Track.Kind.Video) {
           setRemoteVideoTrack(track);
         } else if (track.kind === Track.Kind.Audio) {
@@ -118,7 +118,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
       });
 
       newRoom.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
-        console.log('Track unsubscribed:', track.kind, 'from', participant.identity);
+        console.log('Track unsubscribed:', track.kind, 'from', participant.identity, 'source:', track.source);
         if (track.kind === Track.Kind.Video) {
           setRemoteVideoTrack(null);
         } else if (track.kind === Track.Kind.Audio) {
@@ -180,12 +180,21 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
       
       // Check if we already have camera enabled
       const existingCameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera);
+      if (existingCameraTrack && existingCameraTrack.track && !existingCameraTrack.isMuted) {
+        console.log('Camera already enabled and unmuted');
+        return true;
+      }
+
+      // If camera track exists but is muted, unmute it
       if (existingCameraTrack && existingCameraTrack.track) {
-        console.log('Camera already enabled');
+        console.log('Camera track exists but is muted, unmuting...');
+        await room.localParticipant.setCameraEnabled(true);
+        console.log('Camera unmuted successfully');
         return true;
       }
 
       // Enable camera (we have publish permissions from connection)
+      console.log('Creating and enabling new camera track...');
       await room.localParticipant.setCameraEnabled(true);
       console.log('Answerer camera enabled and published');
       return true;

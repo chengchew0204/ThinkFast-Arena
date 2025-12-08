@@ -42,55 +42,58 @@ export default function GameUI({
     // Enable camera ONLY when it's my turn to answer in ANSWERING stage
     if (isMyTurn && isAnsweringStage) {
       console.log('Enabling camera for answering...');
-      onEnableCamera().then(success => {
-        if (success) {
-          console.log('Camera enabled successfully');
-          
-          // Attach to video element
-          const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
-          if (localVideoElement) {
-            const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-            if (cameraTrack) {
-              cameraTrack.attach(localVideoElement);
-              console.log('Camera track attached to local video element');
-            }
+      
+      // Small delay to ensure video element is mounted
+      const enableTimeout = setTimeout(() => {
+        onEnableCamera().then(success => {
+          if (success) {
+            console.log('Camera enabled successfully');
+            
+            // Wait a bit for the track to be fully ready
+            setTimeout(() => {
+              // Attach to video element
+              const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
+              if (localVideoElement) {
+                // Clear any existing srcObject first
+                if (localVideoElement.srcObject) {
+                  const tracks = (localVideoElement.srcObject as MediaStream).getTracks();
+                  tracks.forEach(track => track.stop());
+                  localVideoElement.srcObject = null;
+                }
+                
+                const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+                if (cameraTrack) {
+                  cameraTrack.attach(localVideoElement);
+                  console.log('Camera track attached to local video element');
+                }
+              }
+            }, 100);
+          } else {
+            console.error('Failed to enable camera');
           }
-        } else {
-          console.error('Failed to enable camera');
-        }
-      });
+        });
+      }, 50);
+
+      return () => {
+        clearTimeout(enableTimeout);
+      };
     } else {
       // Disable camera in all other stages (WAITING, BUZZING, SCORING, GAME_OVER)
       // or when it's not my turn
       const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
       if (cameraTrack && cameraTrack.isMuted === false) {
         console.log('Disabling camera - not in answering stage or not my turn');
-        onDisableCamera();
         
-        // Cleanup video element
+        // Cleanup video element first
         const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
         if (localVideoElement) {
           cameraTrack.detach(localVideoElement);
         }
+        
+        // Then disable the camera
+        onDisableCamera();
       }
     }
-
-    // Cleanup on unmount or stage change
-    return () => {
-      if (isMyTurn && isAnsweringStage) {
-        console.log('Cleanup: Disabling camera after answering');
-        onDisableCamera();
-        
-        // Cleanup video element
-        const localVideoElement = document.getElementById('answerer-local-video') as HTMLVideoElement;
-        if (localVideoElement) {
-          const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-          if (cameraTrack) {
-            cameraTrack.detach(localVideoElement);
-          }
-        }
-      }
-    };
   }, [gameState.stage, gameState.currentAnswerer, isMyTurn, room, onEnableCamera, onDisableCamera]);
 
   // Safety guard: Explicitly disable camera when entering non-answering stages
@@ -134,6 +137,13 @@ export default function GameUI({
       return;
     }
 
+    // Detach any existing tracks from the video element first
+    const existingTracks = remoteVideoElement.srcObject 
+      ? (remoteVideoElement.srcObject as MediaStream).getTracks() 
+      : [];
+    existingTracks.forEach(track => track.stop());
+    remoteVideoElement.srcObject = null;
+
     // Attach existing camera track if available
     const cameraPublication = remoteParticipant.getTrackPublication(Track.Source.Camera);
     
@@ -147,8 +157,11 @@ export default function GameUI({
       const handleTrackSubscribed = (track: any) => {
         console.log('Remote track subscribed:', track.source, track.kind);
         if (track.source === Track.Source.Camera) {
-          track.attach(remoteVideoElement);
-          console.log('Attached remote camera track');
+          const videoEl = document.getElementById('answerer-remote-video') as HTMLVideoElement;
+          if (videoEl) {
+            track.attach(videoEl);
+            console.log('Attached remote camera track');
+          }
         }
       };
 
@@ -167,7 +180,7 @@ export default function GameUI({
         console.log('Detached remote camera track');
       }
     };
-  }, [gameState.stage, gameState.currentAnswerer, isMyTurn, room, gameState.currentRound]);
+  }, [gameState.stage, gameState.currentAnswerer, isMyTurn, room]);
 
   if (!gameState.isGameActive) {
     return null;
@@ -275,7 +288,7 @@ export default function GameUI({
                   <>
                     <video
                       id="answerer-local-video"
-                      key={`local-${gameState.currentAnswerer}-${gameState.currentRound}`}
+                      key="local-video"
                       autoPlay
                       playsInline
                       muted
@@ -289,7 +302,7 @@ export default function GameUI({
                   <>
                     <video
                       id="answerer-remote-video"
-                      key={`remote-${gameState.currentAnswerer}-${gameState.currentRound}`}
+                      key="remote-video"
                       autoPlay
                       playsInline
                       className="w-full h-full object-cover scale-x-[-1]"
