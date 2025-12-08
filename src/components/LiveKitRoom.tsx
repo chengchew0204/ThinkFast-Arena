@@ -25,7 +25,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
   const [room, setRoom] = useState<Room | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<RemoteTrack | null>(null);
-  const [remoteAudioTrack, setRemoteAudioTrack] = useState<RemoteAudioTrack | null>(null);
+  const [remoteAudioTrack, setRemoteAudioTrack] = useState<RemoteTrack | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.Disconnected);
   const [error, setError] = useState<string | null>(null);
 

@@ -233,10 +233,10 @@ export function useGameState(room: Room | null, identity: string) {
     
     const answer: Answer = { transcript, audioBlob };
     
-    // Get current question from state
-    let currentQuestion: Question | null = null;
+    // Get current question from state synchronously
+    const currentQuestionSnapshot = gameState.currentQuestion;
+    
     setGameState(prev => {
-      currentQuestion = prev.currentQuestion;
       return {
         ...prev,
         answer,
@@ -251,7 +251,7 @@ export function useGameState(room: Room | null, identity: string) {
 
     // Calculate final score immediately without follow-up questions
     try {
-      if (!currentQuestion) {
+      if (!currentQuestionSnapshot) {
         console.error('[submitAnswer] No current question!');
         return;
       }
@@ -261,9 +261,9 @@ export function useGameState(room: Room | null, identity: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          question: currentQuestion.content,
+          question: currentQuestionSnapshot.content,
           answer: transcript,
-          topicName: currentQuestion.topicName,
+          topicName: currentQuestionSnapshot.topicName,
         }),
       });
 
