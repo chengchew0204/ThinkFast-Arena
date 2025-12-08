@@ -174,40 +174,40 @@ export default function GameUI({
   }
 
   return (
-    <div className="absolute inset-0 bg-black bg-opacity-90 z-10 flex items-center justify-center p-8">
+    <div className="absolute inset-0 bg-white bg-opacity-95 z-10 flex items-center justify-center p-8">
       <div className="max-w-4xl w-full space-y-6">
         
         {/* Player Score Display */}
-        <div className="border border-gray-700 p-4">
+        <div className="bg-white border border-gray-300 rounded-lg shadow-md p-4">
           <div className="flex justify-between items-center">
-            <div className="text-gray-400 text-sm">
+            <div className="text-gray-600 text-sm">
               Players: {gameState.players.size}
               {gameState.isGameActive && gameState.currentRound > 0 && (
-                <span className="ml-4 text-yellow-500">
+                <span className="ml-4 text-amber-600 font-medium">
                   Round {gameState.currentRound} / {gameState.totalRounds}
                 </span>
               )}
             </div>
-            <div className="text-white text-sm">
-              Your Score: <span className="font-mono text-lg">{currentPlayer?.score || 0}</span>
+            <div className="text-gray-800 text-sm">
+              Your Score: <span className="font-mono text-lg font-medium">{currentPlayer?.score || 0}</span>
             </div>
           </div>
         </div>
 
         {/* Game Stage: Waiting */}
         {gameState.stage === GameStage.WAITING && (
-          <div className="text-center text-white space-y-4">
+          <div className="text-center text-gray-800 space-y-4 bg-white rounded-lg shadow-md p-8">
             <h2 className="text-2xl font-light tracking-wide">Explain Arena</h2>
-            <p className="text-gray-400">Waiting for question...</p>
+            <p className="text-gray-600">Waiting for question...</p>
           </div>
         )}
 
         {/* Game Stage: Question Display */}
         {gameState.stage === GameStage.QUESTION_DISPLAY && gameState.currentQuestion && (
-          <div className="border border-white p-8 space-y-6">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-8 space-y-6">
             <div className="text-center">
-              <div className="text-gray-400 text-xs mb-2">Topic: {gameState.currentQuestion.topicName}</div>
-              <h3 className="text-white text-xl font-light leading-relaxed">
+              <div className="text-gray-600 text-xs mb-2 font-medium">Topic: {gameState.currentQuestion.topicName}</div>
+              <h3 className="text-gray-900 text-xl font-light leading-relaxed">
                 {gameState.currentQuestion.content}
               </h3>
             </div>
@@ -215,17 +215,17 @@ export default function GameUI({
             {gameState.countdown > 0 && (
               <div className="text-center">
                 <div className="relative inline-block">
-                  <div className="text-white text-8xl font-mono font-bold animate-pulse">
+                  <div className="text-gray-800 text-8xl font-mono font-bold animate-pulse">
                     {gameState.countdown}
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div 
-                      className="absolute w-32 h-32 border-4 border-yellow-500 rounded-full animate-ping"
+                      className="absolute w-32 h-32 border-4 border-amber-500 rounded-full animate-ping"
                       style={{ animationDuration: '1s' }}
                     ></div>
                   </div>
                 </div>
-                <p className="text-gray-300 text-lg mt-6 tracking-wide">Get ready to buzz in...</p>
+                <p className="text-gray-700 text-lg mt-6 tracking-wide">Get ready to buzz in...</p>
               </div>
             )}
           </div>
@@ -233,10 +233,10 @@ export default function GameUI({
 
         {/* Game Stage: Buzzing */}
         {gameState.stage === GameStage.BUZZING && gameState.currentQuestion && (
-          <div className="border border-white p-8 space-y-6">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-8 space-y-6">
             <div className="text-center">
-              <div className="text-gray-400 text-xs mb-2">Topic: {gameState.currentQuestion.topicName}</div>
-              <h3 className="text-white text-lg font-light leading-relaxed mb-6">
+              <div className="text-gray-600 text-xs mb-2 font-medium">Topic: {gameState.currentQuestion.topicName}</div>
+              <h3 className="text-gray-900 text-lg font-light leading-relaxed mb-6">
                 {gameState.currentQuestion.content}
               </h3>
             </div>
@@ -244,13 +244,13 @@ export default function GameUI({
             <div className="text-center space-y-4">
               <button
                 onClick={onBuzzIn}
-                className="border-2 border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black transition-all duration-200 px-12 py-4 text-lg font-bold"
+                className="bg-amber-500 text-white hover:bg-amber-600 transition-all duration-200 px-12 py-4 text-lg font-bold rounded-lg shadow-lg hover:shadow-xl"
               >
                 BUZZ IN
               </button>
 
               {gameState.buzzAttempts.length > 0 && (
-                <div className="text-gray-400 text-sm">
+                <div className="text-gray-600 text-sm">
                   {gameState.buzzAttempts.length} player(s) buzzed in...
                 </div>
               )}
@@ -260,17 +260,17 @@ export default function GameUI({
 
         {/* Game Stage: Answering */}
         {gameState.stage === GameStage.ANSWERING && gameState.currentQuestion && (
-          <div className="border border-white p-8 space-y-6">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-8 space-y-6">
             <div className="text-center">
-              <div className="text-gray-400 text-xs mb-2">Topic: {gameState.currentQuestion.topicName}</div>
-              <h3 className="text-white text-lg font-light leading-relaxed">
+              <div className="text-gray-600 text-xs mb-2 font-medium">Topic: {gameState.currentQuestion.topicName}</div>
+              <h3 className="text-gray-900 text-lg font-light leading-relaxed">
                 {gameState.currentQuestion.content}
               </h3>
             </div>
 
             {/* Video Display Area */}
             <div className="flex justify-center">
-              <div className="relative w-full max-w-2xl aspect-video bg-black border border-gray-700">
+              <div className="relative w-full max-w-2xl aspect-video bg-gray-900 border border-gray-300 rounded-lg overflow-hidden shadow-md">
                 {isMyTurn ? (
                   <>
                     <video
@@ -281,7 +281,7 @@ export default function GameUI({
                       muted
                       className="w-full h-full object-cover scale-x-[-1]"
                     />
-                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-xs font-medium">
+                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-xs font-medium rounded-md shadow-md">
                       LIVE - You
                     </div>
                   </>
@@ -294,7 +294,7 @@ export default function GameUI({
                       playsInline
                       className="w-full h-full object-cover scale-x-[-1]"
                     />
-                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-xs font-medium">
+                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-xs font-medium rounded-md shadow-md">
                       LIVE - {gameState.currentAnswerer}
                     </div>
                   </>
@@ -302,10 +302,10 @@ export default function GameUI({
               </div>
             </div>
 
-            <div className="border-t border-gray-700 pt-6">
+            <div className="border-t border-gray-200 pt-6">
               {isMyTurn ? (
                 <div className="space-y-4">
-                  <p className="text-white text-center text-sm">Your turn to answer (90 seconds)</p>
+                  <p className="text-gray-800 text-center text-sm">Your turn to answer (90 seconds)</p>
                   <AudioRecorder
                     maxDuration={90}
                     onRecordingComplete={onAnswerSubmit}
@@ -314,10 +314,10 @@ export default function GameUI({
                   />
                 </div>
               ) : (
-                <div className="text-center text-gray-400">
+                <div className="text-center text-gray-600">
                   <p>{gameState.currentAnswerer} is answering...</p>
                   {gameState.countdown > 0 && (
-                    <div className="text-white text-3xl font-mono mt-4">
+                    <div className="text-gray-800 text-3xl font-mono font-medium mt-4">
                       {gameState.countdown}s
                     </div>
                   )}
@@ -329,51 +329,51 @@ export default function GameUI({
 
         {/* Game Stage: Scoring - Loading */}
         {gameState.stage === GameStage.SCORING && !gameState.finalScore && (
-          <div className="border border-white p-8 space-y-6">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-8 space-y-6">
             <div className="text-center">
-              <h3 className="text-white text-2xl mb-4">Scoring Answer...</h3>
+              <h3 className="text-gray-800 text-2xl mb-4">Scoring Answer...</h3>
               <div className="flex justify-center items-center space-x-2">
-                <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
-              <p className="text-gray-400 text-sm mt-6">AI is evaluating the answer...</p>
+              <p className="text-gray-600 text-sm mt-6">AI is evaluating the answer...</p>
             </div>
           </div>
         )}
 
         {/* Game Stage: Scoring - Results */}
         {gameState.stage === GameStage.SCORING && gameState.finalScore && (
-          <div className="border border-white p-8 space-y-6">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-8 space-y-6">
             <div className="text-center">
-              <h3 className="text-white text-2xl mb-2">Final Score</h3>
-              <div className="text-yellow-500 text-5xl font-mono">
+              <h3 className="text-gray-800 text-2xl mb-2">Final Score</h3>
+              <div className="text-amber-600 text-5xl font-mono font-bold">
                 {gameState.finalScore.totalScore} / {gameState.finalScore.totalMaxScore}
               </div>
             </div>
 
             <div className="space-y-4">
               {gameState.finalScore.dimensions.map((dim, index) => (
-                <div key={index} className="border border-gray-700 p-4">
+                <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-white text-sm">{dim.name}</span>
-                    <span className="text-white font-mono">
+                    <span className="text-gray-800 text-sm font-medium">{dim.name}</span>
+                    <span className="text-gray-800 font-mono">
                       {dim.score} / {dim.maxScore}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-800 h-2 rounded">
+                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
                     <div 
-                      className="bg-white h-2 rounded transition-all duration-500"
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
                       style={{ width: `${(dim.score / dim.maxScore) * 100}%` }}
                     ></div>
                   </div>
-                  <p className="text-gray-400 text-xs mt-2">{dim.feedback}</p>
+                  <p className="text-gray-600 text-xs mt-2">{dim.feedback}</p>
                 </div>
               ))}
             </div>
 
-            <div className="border-t border-gray-700 pt-6">
-              <p className="text-white text-sm leading-relaxed">
+            <div className="border-t border-gray-200 pt-6">
+              <p className="text-gray-800 text-sm leading-relaxed">
                 {gameState.finalScore.overallFeedback}
               </p>
             </div>
@@ -382,16 +382,16 @@ export default function GameUI({
 
         {/* Game Stage: Game Over */}
         {gameState.stage === GameStage.GAME_OVER && (
-          <div className="border border-white p-8 space-y-6">
+          <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-8 space-y-6">
             <div className="text-center">
-              <h2 className="text-white text-3xl font-light tracking-wide mb-2">Game Over</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-gray-900 text-3xl font-light tracking-wide mb-2">Game Over</h2>
+              <p className="text-gray-600 text-sm">
                 {gameState.totalRounds} rounds completed
               </p>
             </div>
 
-            <div className="border-t border-gray-700 pt-6">
-              <h3 className="text-white text-xl mb-4 text-center">Final Leaderboard</h3>
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-gray-800 text-xl mb-4 text-center font-medium">Final Leaderboard</h3>
               <div className="space-y-3">
                 {Array.from(gameState.players.values())
                   .sort((a, b) => b.score - a.score)
@@ -408,35 +408,35 @@ export default function GameUI({
                     return (
                       <div
                         key={player.identity}
-                        className={`border p-4 flex justify-between items-center ${
+                        className={`border rounded-lg p-4 flex justify-between items-center ${
                           isCurrentUser
-                            ? 'border-yellow-500 bg-yellow-500 bg-opacity-10'
-                            : 'border-gray-700'
+                            ? 'border-amber-400 bg-amber-50'
+                            : 'border-gray-200 bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center space-x-4">
                           <div
-                            className={`text-2xl font-mono ${
+                            className={`text-2xl font-mono font-bold ${
                               rank === 1
-                                ? 'text-yellow-500'
+                                ? 'text-amber-500'
                                 : rank === 2
-                                ? 'text-gray-300'
+                                ? 'text-gray-500'
                                 : rank === 3
                                 ? 'text-orange-600'
-                                : 'text-gray-500'
+                                : 'text-gray-400'
                             }`}
                           >
                             {rank}
                             <span className="text-xs align-super">{getRankSuffix(rank)}</span>
                           </div>
                           <div>
-                            <div className={`text-sm ${isCurrentUser ? 'text-yellow-500 font-medium' : 'text-white'}`}>
+                            <div className={`text-sm ${isCurrentUser ? 'text-amber-700 font-medium' : 'text-gray-800'}`}>
                               {player.identity}
                               {isCurrentUser && <span className="ml-2 text-xs">(You)</span>}
                             </div>
                           </div>
                         </div>
-                        <div className="text-white text-xl font-mono">
+                        <div className="text-gray-800 text-xl font-mono font-medium">
                           {player.score}
                         </div>
                       </div>
@@ -445,8 +445,8 @@ export default function GameUI({
               </div>
             </div>
 
-            <div className="border-t border-gray-700 pt-6 text-center">
-              <p className="text-gray-400 text-sm">
+            <div className="border-t border-gray-200 pt-6 text-center">
+              <p className="text-gray-600 text-sm">
                 Waiting for host to start a new game...
               </p>
             </div>

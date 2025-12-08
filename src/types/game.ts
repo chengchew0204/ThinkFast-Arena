@@ -67,6 +67,7 @@ export interface GameState {
   currentContentId: string | null;
   currentRound: number;
   totalRounds: number;
+  hostIdentity: string | null;
 }
 
 export enum GameMessageType {

@@ -5,12 +5,12 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Arena of Consciousness - Global Real-time Broadcasting',
-  description: 'Global low-latency broadcasting platform based on WebRTC + SFU architecture. Anyone can takeover broadcast at any time.',
-  keywords: 'WebRTC, broadcasting, SFU, LiveKit, real-time communication',
-  authors: [{ name: 'Arena of Consciousness' }],
+  title: 'ThinkFast Arena - Real-time Quiz Game',
+  description: 'Real-time multiplayer quiz game platform based on WebRTC + SFU architecture. Compete with friends in knowledge battles.',
+  keywords: 'WebRTC, quiz game, multiplayer, SFU, LiveKit, real-time communication',
+  authors: [{ name: 'ThinkFast Arena' }],
   viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#000000',
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({

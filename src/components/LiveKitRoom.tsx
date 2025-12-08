@@ -24,12 +24,10 @@ interface LiveKitRoomProps {
 export default function LiveKitRoom({ roomName, identity, onDisconnected }: LiveKitRoomProps) {
   const [room, setRoom] = useState<Room | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<RemoteTrack | null>(null);
-  const [remoteAudioTrack, setRemoteAudioTrack] = useState<RemoteTrack | null>(null);
+  const [remoteAudioTrack, setRemoteAudioTrack] = useState<RemoteAudioTrack | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.Disconnected);
   const [error, setError] = useState<string | null>(null);
-  const [isGameMode, setIsGameMode] = useState(false);
 
   // Game state management
   const {
@@ -44,11 +42,11 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
     addPlayer,
   } = useGameState(room, identity);
 
-  const connectToRoom = useCallback(async (canPublish = true, shouldEnableMedia = false) => {
+  const connectToRoom = useCallback(async () => {
     try {
       setError(null);
       
-      // Get token from API
+      // Get token from API with publish permissions for game mode
       const response = await fetch('/api/token', {
         method: 'POST',
         headers: {
@@ -57,7 +55,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         body: JSON.stringify({
           identity,
           roomName,
-          canPublish,
+          canPublish: true,
           canSubscribe: true,
         }),
       });
@@ -86,11 +84,8 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         console.log('Connected to room:', roomName);
         setIsConnected(true);
         setConnectionState(ConnectionState.Connected);
-        setError(null); // Clear any previous errors
+        setError(null);
       });
-
-      // Note: RoomEvent.Connecting doesn't exist in current LiveKit version
-      // Connection state will be managed through Connected/Disconnected events
 
       newRoom.on(RoomEvent.Reconnecting, () => {
         console.log('Reconnecting to room:', roomName);
@@ -107,12 +102,9 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
       newRoom.on(RoomEvent.Disconnected, (reason) => {
         console.log('Disconnected from room:', reason);
         setIsConnected(false);
-        setIsBroadcasting(false);
         setConnectionState(ConnectionState.Disconnected);
         setRemoteVideoTrack(null);
         setRemoteAudioTrack(null);
-        // Only call onDisconnected for intentional disconnects, not connection errors
-        // reason is DisconnectReason enum, not string
         onDisconnected?.();
       });
 
@@ -149,21 +141,6 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         addPlayer(participant.identity);
       });
 
-      // Handle track muted events (when someone's broadcast is taken over)
-      newRoom.on(RoomEvent.TrackMuted, (publication, participant) => {
-        console.log('Track muted:', publication.kind, 'from', participant.identity);
-        if (participant.identity === identity && publication.kind === Track.Kind.Video) {
-          // My video track was muted, I'm no longer broadcasting
-          setIsBroadcasting(false);
-          setError('Your broadcast has been taken over by another user');
-        }
-      });
-
-      // Handle track unmuted events
-      newRoom.on(RoomEvent.TrackUnmuted, (publication, participant) => {
-        console.log('Track unmuted:', publication.kind, 'from', participant.identity);
-      });
-
       // Connect to the room
       const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL;
       if (!livekitUrl) {
@@ -181,21 +158,8 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         addPlayer(participant.identity);
       });
 
-      // Enable camera/microphone only if explicitly requested (for manual broadcasting)
-      // Game mode will handle its own camera control through GameUI
-      if (shouldEnableMedia && canPublish) {
-        try {
-          console.log('Enabling camera and microphone for broadcasting...');
-          await newRoom.localParticipant.enableCameraAndMicrophone();
-          setIsBroadcasting(true);
-          console.log('Broadcasting started successfully');
-        } catch (mediaErr) {
-          console.error('Failed to enable media after connection:', mediaErr);
-          setError('Unable to enable camera or microphone. Please check if devices are being used by other applications.');
-        }
-      } else {
-        console.log('Connected to room. Camera/microphone will be controlled by game mode or manual broadcasting.');
-      }
+      // Camera/microphone will be controlled by game mode
+      console.log('Connected to room. Camera/microphone will be controlled by game mode.');
 
       setRoom(newRoom);
     } catch (err) {
@@ -204,115 +168,6 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
     }
   }, [identity, roomName, onDisconnected, addPlayer]);
 
-  const startBroadcasting = useCallback(async () => {
-    try {
-      setError(null);
-      console.log('Starting broadcasting process...');
-      
-      // First, check if we can access media devices
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-        // Stop the test stream immediately
-        stream.getTracks().forEach(track => track.stop());
-        console.log('Media devices access confirmed');
-      } catch (mediaErr: any) {
-        console.error('Media access denied:', mediaErr);
-        let errorMessage = 'Media access failed: ';
-        
-        if (mediaErr.name === 'NotAllowedError') {
-          errorMessage += 'Permission denied. Please click the camera icon in the browser address bar to allow access, then refresh the page.';
-        } else if (mediaErr.name === 'NotFoundError') {
-          errorMessage += 'Camera or microphone not found. Please ensure devices are connected.';
-        } else if (mediaErr.name === 'NotReadableError') {
-          errorMessage += 'Device is being used by another application. Please close other camera applications.';
-        } else if (mediaErr.name === 'NotSecureError' || mediaErr.name === 'SecurityError') {
-          errorMessage += 'Secure connection required (HTTPS). Please use localhost or HTTPS URL.';
-        } else {
-          errorMessage += mediaErr.message || 'Unknown error';
-        }
-        
-        setError(errorMessage);
-        return;
-      }
-      
-      // Call takeover API to mute other broadcasters
-      try {
-        const response = await fetch('/api/takeover', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            roomName,
-            newBroadcasterIdentity: identity,
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to takeover broadcast');
-        }
-        
-        console.log('Takeover successful');
-      } catch (takeoverErr) {
-        console.error('Takeover failed:', takeoverErr);
-        // Continue anyway, as this might be the first broadcaster
-      }
-
-      // Disconnect current viewer connection and reconnect with publishing permissions
-      if (room) {
-        console.log('Disconnecting viewer connection to reconnect as broadcaster...');
-        await room.disconnect();
-        setRoom(null);
-        setIsConnected(false);
-      }
-
-      // Connect with publishing permissions and enable media
-      console.log('Connecting with publishing permissions...');
-      await connectToRoom(true, true); // canPublish=true, shouldEnableMedia=true
-      
-    } catch (err) {
-      console.error('Failed to start broadcasting:', err);
-      setError(err instanceof Error ? err.message : 'Failed to start broadcasting');
-    }
-  }, [room, roomName, identity, connectToRoom]);
-
-  const stopBroadcasting = useCallback(async () => {
-    if (room && room.localParticipant) {
-      try {
-        // Unpublish all tracks
-        const cameraTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-        const micTrack = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track;
-        
-        if (cameraTrack) {
-          await room.localParticipant.unpublishTrack(cameraTrack);
-        }
-        if (micTrack) {
-          await room.localParticipant.unpublishTrack(micTrack);
-        }
-        
-        setIsBroadcasting(false);
-        console.log('Broadcasting stopped');
-        
-        // Stop local media tracks to free up camera/microphone
-        if (cameraTrack) {
-          cameraTrack.stop();
-        }
-        if (micTrack) {
-          micTrack.stop();
-        }
-        
-        // Stay connected to the room as a viewer
-        // No need to disconnect and reconnect
-        
-      } catch (error) {
-        console.error('Error stopping broadcast:', error);
-        setError('Failed to stop broadcasting');
-      }
-    }
-  }, [room]);
 
   const enableAnswererCamera = useCallback(async () => {
     if (!room) {
@@ -366,7 +221,7 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
     
     const initConnection = async () => {
       if (mounted) {
-        await connectToRoom(true);
+        await connectToRoom();
       }
     };
     
@@ -402,22 +257,9 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
     }
   }, [remoteAudioTrack]);
 
-  // Attach local video track when broadcasting
-  useEffect(() => {
-    const localVideoElement = document.getElementById('local-video') as HTMLVideoElement;
-    if (localVideoElement && room && isBroadcasting) {
-      const localVideoTrack = room.localParticipant.getTrackPublication(Track.Source.Camera)?.track;
-      if (localVideoTrack) {
-        localVideoTrack.attach(localVideoElement);
-        return () => {
-          localVideoTrack.detach();
-        };
-      }
-    }
-  }, [room, isBroadcasting]);
 
   return (
-    <div className="w-full h-screen bg-black relative">
+    <div className="w-full h-screen bg-gradient-to-br from-gray-50 to-gray-100 relative">
       {/* Audio element for remote audio track */}
       <audio
         id="remote-audio"
@@ -427,8 +269,8 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
       
       {/* Video Container */}
       <div className="video-container">
-        {/* Remote Video (when someone else is broadcasting) */}
-        {remoteVideoTrack && !isBroadcasting && (
+        {/* Remote Video (when someone else is in game) */}
+        {remoteVideoTrack && (
           <video
             id="remote-video"
             autoPlay
@@ -438,52 +280,41 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
           />
         )}
         
-        {/* Local Video (when I am broadcasting) */}
-        {isBroadcasting && (
-          <video
-            id="local-video"
-            autoPlay
-            playsInline
-            muted={true}
-            className="w-full h-full object-cover scale-x-[-1]"
-          />
-        )}
-        
-        {/* Black Screen / Waiting State */}
-        {!remoteVideoTrack && !isBroadcasting && (
-          <div className="flex flex-col items-center justify-center h-full text-white">
-            <div className="border border-gray-800 p-8 text-center">
-              <h1 className="text-xl font-light mb-4 tracking-wide">Arena of Consciousness</h1>
+        {/* Waiting State */}
+        {!remoteVideoTrack && (
+          <div className="flex flex-col items-center justify-center h-full text-gray-800">
+            <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8 text-center">
+              <h1 className="text-2xl font-light mb-4 tracking-wide text-gray-900">ThinkFast Arena</h1>
               {connectionState === ConnectionState.Connected ? (
                 <div className="space-y-3">
-                  <p className="text-gray-400 text-sm">No active broadcast</p>
+                  <p className="text-gray-600 text-sm">Ready to play</p>
                   <p className="text-xs text-gray-500">
                     {room && room.numParticipants > 1 
-                      ? `${room.numParticipants} participants online` 
-                      : 'You are the first participant'}
+                      ? `${room.numParticipants} players online` 
+                      : 'You are the first player'}
                   </p>
-                  <p className="text-xs text-gray-300 mt-4">Click button below to start broadcasting</p>
+                  <p className="text-xs text-gray-700 mt-4">Use the game controls to start</p>
                 </div>
               ) : connectionState === ConnectionState.Reconnecting ? (
-                <p className="text-gray-400 text-sm">Reconnecting...</p>
+                <p className="text-gray-600 text-sm">Reconnecting...</p>
               ) : (
-                <p className="text-gray-400 text-sm">Connecting...</p>
+                <p className="text-gray-600 text-sm">Connecting...</p>
               )}
             </div>
           </div>
         )}
         
         {/* Connection Status */}
-        <div className="absolute top-4 right-4 text-white">
-          <div className={`inline-flex items-center px-3 py-1 text-xs border ${
+        <div className="absolute top-4 right-4">
+          <div className={`inline-flex items-center px-3 py-1 text-xs rounded-lg shadow-md ${
             connectionState === ConnectionState.Connected 
-              ? 'border-white text-white' 
+              ? 'bg-green-50 border border-green-400 text-green-700' 
               : connectionState === ConnectionState.Connecting
-              ? 'border-gray-400 text-gray-400'
-              : 'border-gray-600 text-gray-600'
+              ? 'bg-yellow-50 border border-yellow-400 text-yellow-700'
+              : 'bg-gray-50 border border-gray-400 text-gray-600'
           }`}>
-            <div className={`w-1 h-1 rounded-full mr-2 ${
-              connectionState === ConnectionState.Connected ? 'bg-white' : 'bg-gray-500'
+            <div className={`w-2 h-2 rounded-full mr-2 ${
+              connectionState === ConnectionState.Connected ? 'bg-green-500' : 'bg-gray-400'
             }`}></div>
             {connectionState === ConnectionState.Connected ? 'Connected' : 
              connectionState === ConnectionState.Connecting ? 'Connecting' : 'Disconnected'}
@@ -492,92 +323,41 @@ export default function LiveKitRoom({ roomName, identity, onDisconnected }: Live
         
         {/* Participant Count */}
         {room && (
-          <div className="absolute bottom-4 right-4 text-white text-xs">
+          <div className="absolute bottom-4 right-4 bg-white bg-opacity-95 px-3 py-1 rounded-lg shadow-md text-gray-700 text-xs border border-gray-200">
             {room.numParticipants} online
           </div>
         )}
-        
-        {/* Broadcasting Status */}
-        {(isBroadcasting || (remoteVideoTrack && !isBroadcasting)) && (
-          <div className="absolute bottom-4 left-4 text-white text-xs">
-            {isBroadcasting && "Broadcasting"}
-            {remoteVideoTrack && !isBroadcasting && "Viewing"}
-          </div>
-        )}
       </div>
 
-      {/* Control Panel */}
-      <div className="control-panel">
-        {!isBroadcasting ? (
-          <button
-            onClick={startBroadcasting}
-            disabled={!isConnected}
-            className="border border-white text-white hover:bg-white hover:text-black disabled:border-gray-600 disabled:text-gray-600 disabled:hover:bg-transparent disabled:hover:text-gray-600 px-6 py-2 text-sm transition-colors duration-200"
-          >
-            {remoteVideoTrack ? 'Takeover Broadcast' : 'Start Broadcasting'}
-          </button>
-        ) : (
-          <button
-            onClick={stopBroadcasting}
-            className="border border-gray-400 text-gray-400 hover:border-white hover:text-white px-6 py-2 text-sm transition-colors duration-200"
-          >
-            Stop Broadcasting
-          </button>
-        )}
-        
-        {isConnected && (
-          <>
-            <button
-              onClick={() => setIsGameMode(!isGameMode)}
-              className={`border ${isGameMode ? 'border-green-500 text-green-500' : 'border-gray-600 text-gray-600'} hover:border-green-400 hover:text-green-400 px-6 py-2 text-sm transition-colors duration-200`}
-            >
-              {isGameMode ? 'Game Mode: ON' : 'Game Mode: OFF'}
-            </button>
-            
-            <button
-              onClick={disconnect}
-              className="border border-gray-600 text-gray-600 hover:border-gray-400 hover:text-gray-400 px-6 py-2 text-sm transition-colors duration-200"
-            >
-              Disconnect
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Game UI Overlay */}
-      {isGameMode && (
-        <>
-          <GameControlPanel
-            gameState={gameState}
-            onStartGame={startGame}
-            onSetContent={setContent}
-            onGenerateQuestion={generateQuestion}
-            onNextRound={nextRound}
-            onResetGame={resetGame}
-          />
-          
-          <GameUI
-            gameState={gameState}
-            identity={identity}
-            room={room}
-            onBuzzIn={buzzIn}
-            onAnswerSubmit={submitAnswer}
-            onEnableCamera={enableAnswererCamera}
-            onDisableCamera={disableAnswererCamera}
-          />
-        </>
-      )}
+      {/* Game UI - Always Active */}
+      <GameControlPanel
+        gameState={gameState}
+        identity={identity}
+        onStartGame={startGame}
+        onSetContent={setContent}
+        onGenerateQuestion={generateQuestion}
+        onNextRound={nextRound}
+        onResetGame={resetGame}
+      />
+      
+      <GameUI
+        gameState={gameState}
+        identity={identity}
+        room={room}
+        onBuzzIn={buzzIn}
+        onAnswerSubmit={submitAnswer}
+        onEnableCamera={enableAnswererCamera}
+        onDisableCamera={disableAnswererCamera}
+      />
       
       {/* Error/Info Display */}
       {error && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border border-gray-400 bg-black p-6 max-w-md text-white">
-          <h3 className="font-medium mb-3 text-sm">
-            {error.includes('taken over') ? 'Notification' : 'Error'}
-          </h3>
-          <p className="text-sm text-gray-300 mb-4">{error}</p>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl border border-red-300 p-6 max-w-md">
+          <h3 className="font-medium mb-3 text-sm text-red-700">Error</h3>
+          <p className="text-sm text-gray-700 mb-4">{error}</p>
           <button
             onClick={() => setError(null)}
-            className="border border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white px-4 py-1 text-xs transition-colors duration-200"
+            className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 text-xs transition-colors duration-200 rounded-lg"
           >
             Close
           </button>
