@@ -13,12 +13,12 @@ export default function Home() {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    const storedIdentity = localStorage.getItem('user-identity');
+    const storedIdentity = sessionStorage.getItem('user-identity');
     if (storedIdentity) {
       setIdentity(storedIdentity);
     } else {
       const newIdentity = `user-${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('user-identity', newIdentity);
+      sessionStorage.setItem('user-identity', newIdentity);
       setIdentity(newIdentity);
     }
   }, []);
