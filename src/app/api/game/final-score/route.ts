@@ -31,34 +31,44 @@ Question: ${question}
 Candidate's Answer:
 ${answer}
 
-Evaluate based on the following three dimensions:
+Evaluate based on the following four dimensions:
 
-1. Conceptual Accuracy (40 points): Correctness and precision of concepts and terminology
-2. Argument Structure (30 points): Logic, organization, and completeness of response
-3. Examples & Applications (30 points): Ability to provide relevant examples or real-world applications
+1. Concept Accuracy (30 points): Correctness of core concepts
+2. Structural Coherence (25 points): Logical organization and clarity
+3. Practical Examples (25 points): Real-world applications
+4. Response Quality (20 points): Communication effectiveness
 
-CRITICAL: You MUST calculate actual scores based on the answer quality. Do NOT use the example numbers below.
+CRITICAL RULES:
+- You MUST calculate actual scores based on the answer quality. Do NOT use the example numbers below.
+- If the answer is empty, blank, or completely unrelated to the topic, give 0 points for ALL dimensions.
+- If the answer shows no understanding of the topic or is nonsensical, give 0 points for ALL dimensions.
 
 Return in JSON format with your calculated scores:
 {
   "dimensions": [
     {
-      "name": "Conceptual Accuracy",
-      "score": <your_calculated_score_0_to_40>,
-      "maxScore": 40,
-      "feedback": "Specific feedback on conceptual accuracy"
-    },
-    {
-      "name": "Argument Structure",
+      "name": "Concept Accuracy",
       "score": <your_calculated_score_0_to_30>,
       "maxScore": 30,
-      "feedback": "Specific feedback on argument structure"
+      "feedback": "Specific feedback on concept accuracy"
     },
     {
-      "name": "Examples & Applications",
-      "score": <your_calculated_score_0_to_30>,
-      "maxScore": 30,
-      "feedback": "Specific feedback on examples and applications"
+      "name": "Structural Coherence",
+      "score": <your_calculated_score_0_to_25>,
+      "maxScore": 25,
+      "feedback": "Specific feedback on structural coherence"
+    },
+    {
+      "name": "Practical Examples",
+      "score": <your_calculated_score_0_to_25>,
+      "maxScore": 25,
+      "feedback": "Specific feedback on practical examples"
+    },
+    {
+      "name": "Response Quality",
+      "score": <your_calculated_score_0_to_20>,
+      "maxScore": 20,
+      "feedback": "Specific feedback on response quality"
     }
   ],
   "totalScore": <sum_of_all_dimension_scores>,
